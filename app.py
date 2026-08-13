@@ -123,9 +123,6 @@ results_df = results_df.reset_index(drop=True)
 
 st.markdown("---")
 
-# ---------------------------------------------------------------------------
-# Seção A — Matemática do PCA & Gráfico de Variância
-# ---------------------------------------------------------------------------
 st.header("🔬 Seção A — Comprimindo o Ruído (PCA)")
 st.markdown(
     """
@@ -177,9 +174,6 @@ with col_a2:
 
 st.markdown("---")
 
-# ---------------------------------------------------------------------------
-# Seção B — Agrupamento K-Means & Projeção 2D
-# ---------------------------------------------------------------------------
 st.header("🧭 Seção B — Agrupando Ações Parecidas (K-Means)")
 st.markdown(
     """
@@ -285,9 +279,6 @@ st.info(
 
 st.markdown("---")
 
-# ---------------------------------------------------------------------------
-# Seção C — Análise de Grupos & "Ações Gêmeas"
-# ---------------------------------------------------------------------------
 st.header("👯 Seção C — Composição dos Grupos & Ações Gêmeas")
 st.markdown(
     """

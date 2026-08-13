@@ -1,0 +1,364 @@
+% !TEX program = pdflatex
+% Relatorio ABNT - DNA do Mercado: PCA e Clusterizacao
+% Compilador recomendado no Overleaf: pdfLaTeX (Menu > Compiler > pdfLaTeX)
+% Classe: abntex2 (disponivel na distribuicao padrao do Overleaf, nao requer instalacao extra)
+
+\documentclass[12pt,oneside,a4paper,brazil,sumario=tradicional]{abntex2}
+
+% ---------------------------------------------------------------------------
+% PACOTES
+% ---------------------------------------------------------------------------
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[brazil]{babel}
+\usepackage{times}
+\usepackage{textcomp}
+\usepackage{indentfirst}
+\usepackage{booktabs}
+\usepackage{array}
+
+% ---------------------------------------------------------------------------
+% DADOS DA CAPA E FOLHA DE ROSTO
+% ---------------------------------------------------------------------------
+\titulo{DNA do Mercado: PCA e Clusterização Aplicados a Ações Americanas}
+\autor{Pedro Zborowski}
+\local{Rio de Janeiro}
+\data{2026}
+\instituicao{%
+  Universidade Federal do Rio de Janeiro -- UFRJ
+  \par
+  Computação Científica e Análise de Dados}
+\tipotrabalho{Relatório técnico}
+\preambulo{Relatório técnico apresentado à disciplina de Computação Científica e
+Análise de Dados (UFRJ) como parte da avaliação do trabalho final, com foco na
+implementação e na interpretação econômica de PCA e clusterização por K-Means.}
+
+\begin{document}
+
+% ---------------------------------------------------------------------------
+% ELEMENTOS PRE-TEXTUAIS
+% ---------------------------------------------------------------------------
+\pretextual
+
+\imprimircapa
+\imprimirfolhaderosto
+
+\begin{resumo}
+Este trabalho descreve a implementação e a interpretação econômica de um pipeline
+de Análise de Componentes Principais (PCA) e agrupamento por K-Means aplicado a
+retornos diários de 40 ações americanas de grande capitalização, divididas a
+priori em 8 setores segundo a classificação GICS. O objetivo é avaliar se a
+classificação setorial de manual continua explicando o comovimento das ações ou
+se o mercado as agrupa por outra lógica -- sensibilidade a juros, exposição a
+commodities, exposição ao ciclo de investimento em inteligência artificial ou
+risco geopolítico. Descreve-se o pipeline de dados (coleta via Yahoo Finance,
+cálculo de retornos, padronização e ajuste do PCA), discute-se uma nuance técnica
+da padronização utilizada -- que afeta a leitura do primeiro componente principal
+como um fator de beta relativo -- e interpreta-se economicamente cada componente
+principal e cada agrupamento de K-Means observado tipicamente nesse tipo de
+análise. Os resultados indicam que o primeiro componente captura um fator de
+mercado/beta, o segundo separa crescimento (ligado à infraestrutura de
+inteligência artificial) de ativos defensivos, e o terceiro isola o setor de
+energia como classe quase independente; os agrupamentos de K-Means, por sua vez,
+tendem a cruzar a classificação setorial oficial em pontos economicamente
+explicáveis. Conclui-se que PCA e K-Means, embora não recebam qualquer rótulo de
+setor, recuperam estrutura econômica reconhecível a partir apenas dos preços,
+evidenciando os limites da diversificação puramente setorial.
+
+\vspace{\onelineskip}
+
+\noindent
+\textbf{Palavras-chave}: Análise de Componentes Principais. K-Means.
+Aprendizado não supervisionado. Mercado de ações. Redução de dimensionalidade.
+\end{resumo}
+
+\pdfbookmark[0]{\contentsname}{toc}
+\tableofcontents*
+\cleardoublepage
+
+% ---------------------------------------------------------------------------
+% ELEMENTOS TEXTUAIS
+% ---------------------------------------------------------------------------
+\textual
+
+\section{Introdução}
+
+O aplicativo \emph{DNA do Mercado} baixa um ano de preços diários de 40 ações
+americanas de grande capitalização, divididas a priori em 8 setores segundo a
+classificação de manual (GICS): Tecnologia, Financeiro, Saúde, Energia, Consumo,
+Industrial, Automotivo e Telecom. A partir dos retornos diários dessas ações, o
+pipeline aplica duas técnicas clássicas de aprendizado de máquina não
+supervisionado -- PCA (redução de dimensionalidade) e K-Means (agrupamento) --
+para responder a uma pergunta específica: a classificação setorial de manual
+ainda explica como essas ações se movem no dia a dia, ou o mercado agrupa as
+empresas por outra lógica, como sensibilidade a juros, exposição a commodities,
+exposição ao ciclo de investimento em inteligência artificial ou risco
+geopolítico?
+
+PCA e K-Means são adequados a essa pergunta porque nenhum dos dois algoritmos
+recebe o rótulo de setor como entrada -- eles enxergam apenas séries numéricas de
+retorno. Se os grupos encontrados pelo K-Means coincidirem com a coluna de setor,
+isso é evidência de que a classificação de manual continua sendo a força
+dominante. Se os grupos cruzarem setores oficiais, há uma força macroeconômica
+mais forte unindo essas empresas do que a atividade declarada de cada uma.
+
+\section{Dados e pipeline de processamento}
+
+Os preços são obtidos via biblioteca \texttt{yfinance} (período de um ano,
+preços ajustados), cobrindo cerca de 252 pregões. Ações com histórico incompleto
+no período são descartadas para garantir uma matriz retangular sem lacunas. Em
+seguida, os preços são convertidos em retornos percentuais diários, a unidade
+correta para comparar ações de preços absolutos muito diferentes. O pipeline
+segue as seguintes etapas, nesta ordem:
+
+\begin{enumerate}
+  \item coleta de preços diários ajustados na Yahoo Finance;
+  \item cálculo dos retornos percentuais diários;
+  \item transposição da matriz, de modo que cada empresa vire uma linha (amostra)
+        e cada dia de negociação vire uma coluna (variável);
+  \item padronização (\emph{StandardScaler}) coluna a coluna;
+  \item ajuste do PCA sobre a matriz padronizada;
+  \item agrupamento por K-Means sobre os primeiros componentes do PCA.
+\end{enumerate}
+
+Um detalhe de implementação é central para tudo o que segue: a matriz de
+retornos é transposta antes da padronização e do PCA. Isso inverte o papel usual
+de linhas e colunas: cada \textbf{empresa} vira uma amostra e cada \textbf{dia de
+negociação} vira uma variável. Em outras palavras, o PCA não procura os dias mais
+importantes do ano -- ele procura os eixos ao longo dos quais as 40 empresas mais
+diferem entre si, tratando toda a trajetória de 252 dias de cada ação como sua
+impressão digital.
+
+\section{Análise de Componentes Principais (PCA)}
+
+\subsection{Padronização e ajuste do modelo}
+
+Antes do PCA, os dados passam pelo \emph{StandardScaler}, que padroniza cada
+coluna da matriz. Como a matriz de entrada tem empresas nas linhas e dias nas
+colunas, essa padronização recalcula, para cada dia individual, a média e o
+desvio-padrão dos retornos das 40 empresas naquele dia, expressando o retorno de
+cada empresa como um escore-$z$ em relação às demais no mesmo pregão.
+
+\textbf{Observação técnica.} Essa padronização por dia tem uma consequência
+interpretativa importante: como a média do mercado naquele dia já é subtraída
+antes de o PCA rodar, o primeiro componente principal não é literalmente ``o
+índice subiu ou desceu'' -- ele é o eixo que melhor separa as empresas mais
+sensíveis ao mercado (beta alto) das menos sensíveis (beta baixo), porque uma
+ação de beta alto se desvia da média do dia em uma direção consistente ao longo
+do ano, enquanto uma ação de beta baixo quase não se desvia. Ou seja, o primeiro
+componente continua sendo, na prática, um fator de beta relativo ao mercado --
+apenas medido como dispersão em torno da média diária, e não como o nível do
+índice em si (JOLLIFFE, 2002).
+
+O PCA é ajustado com o número máximo de componentes permitido pelos dados (até
+10, dado o tamanho do universo de ações e o número de dias disponíveis),
+utilizando a implementação da biblioteca \emph{scikit-learn}
+(PEDREGOSA et al., 2011). O usuário do painel escolhe, entre 2 e 10, quantos
+desses componentes alimentam o K-Means; o PCA em si é recalculado apenas quando
+os dados de mercado mudam.
+
+\subsection{Interpretação econômica de cada componente}
+
+Cada componente principal pode ser lido como um fator de risco latente -- um
+padrão de comovimento que nenhuma variável do conjunto de dados original nomeia
+diretamente, mas que corresponde a temas macroeconômicos reconhecíveis quando se
+observa quais ações têm peso alto em cada eixo. O Quadro 1 resume a leitura
+econômica típica de cada componente.
+
+\begin{table}[htb]
+\caption{Interpretação econômica dos componentes principais}
+\centering
+\begin{tabular}{p{1.7cm}p{2.3cm}p{9.5cm}}
+\toprule
+\textbf{Componente} & \textbf{Variância típica} & \textbf{Leitura econômica} \\
+\midrule
+PC1 & 30\%--45\% & Fator de mercado/beta. Separa ações de alta sensibilidade ao
+mercado geral (tecnologia, cíclicas) das de baixa sensibilidade (defensivas). \\
+PC2 & 10\%--20\% & Eixo ``crescimento/IA'' vs. ``defensivo/valor''. De um lado,
+nomes ligados ao ciclo de investimento em infraestrutura de inteligência
+artificial; do outro, pagadoras de dividendo estável e sensíveis a juros. \\
+PC3 & 5\%--12\% & Fator commodity/energia. Isola as ações do setor de energia
+como bloco quase independente do resto do mercado, reagindo a choques
+geopolíticos de oferta em vez do sentimento geral de bolsa. \\
+PC4--PC5 & 3\%--6\% cada & Fatores mais sutis e específicos de subgrupo (ex.:
+sensibilidade de bancos a juros, exposição a tarifas de importação). \\
+PC6 em diante & poucos pontos percentuais & Ruído idiossincrático -- eventos de
+uma única empresa, não mais um fator de mercado amplo. \\
+\bottomrule
+\end{tabular}
+\vspace{2mm}
+\noindent{\footnotesize Fonte: elaborado pelo autor, com base nos padrões
+típicos de comovimento observados em ações americanas de grande
+capitalização.}
+\end{table}
+
+\subsection{Variância explicada e o número de componentes}
+
+O painel exibe, para cada componente calculado, a fração da variância total dos
+retornos que ele explica, além da soma acumulada até o número de componentes
+selecionado. Em geral, a curva de variância explicada cai de forma acentuada até
+o terceiro ou quarto componente e depois se achata (o chamado ``cotovelo'' do
+gráfico de variância), sinalizando que os componentes seguintes agregam pouca
+informação nova por unidade de complexidade.
+
+O número de componentes usados no K-Means determina o quanto dessa estrutura é
+efetivamente aproveitada, conforme resume o Quadro 2.
+
+\begin{table}[htb]
+\caption{Número de componentes principais: o que cada escolha captura}
+\centering
+\begin{tabular}{p{1.6cm}p{5.3cm}p{6.6cm}}
+\toprule
+\textbf{N\textordmasculine{} de PCs} & \textbf{O que captura} & \textbf{Consequência para os agrupamentos} \\
+\midrule
+2 & Apenas mercado geral (PC1) e crescimento vs. defensivo (PC2); cerca de
+40\%--55\% da variância. & Separação simples de visualizar, mas energia e
+industriais tendem a ficar mal classificados. \\
+3--5 & Mercado, crescimento/valor, energia e um ou dois fatores sutis; cerca de
+65\%--80\% da variância. & Agrupamentos interpretáveis e alinhados à intuição
+econômica, cruzando o setor oficial em pontos pontuais e explicáveis. \\
+8--10 & Reconstrói mais de 85\%--90\% da variância original, mas os componentes
+extras já são majoritariamente ruído de empresa. & Agrupamentos mais
+fragmentados; o escore de silhueta tende a cair, pois o K-Means passa a reagir a
+ruído idiossincrático. \\
+\bottomrule
+\end{tabular}
+\vspace{2mm}
+\noindent{\footnotesize Fonte: elaborado pelo autor.}
+\end{table}
+
+Trata-se do trade-off clássico de viés-variância aplicado à redução de
+dimensionalidade: poucos componentes dão uma visão grosseira, porém estável;
+muitos componentes dão uma visão detalhada, porém ruidosa.
+
+\section{Agrupamento por K-Means}
+
+\subsection{Do espaço de PCA ao espaço de agrupamentos}
+
+O K-Means não roda sobre os retornos brutos, e sim sobre as primeiras colunas
+dos escores de PCA, em número igual ao escolhido pelo usuário. Essa escolha é
+intencional: agrupar diretamente sobre cerca de 250 dimensões de retorno diário
+seria dominado por ruído; agrupar sobre um punhado de componentes principais
+concentra o algoritmo nos padrões de comovimento mais fortes já identificados
+pelo PCA. O ajuste utiliza dez inicializações aleatórias diferentes, mantendo a
+de menor inércia, com semente fixa para reprodutibilidade dentro da mesma sessão
+de dados.
+
+\subsection{Escolha de \emph{k} e o escore de silhueta}
+
+Para orientar a escolha do número de agrupamentos, o painel calcula o escore de
+silhueta (\emph{silhouette score}) para todo \emph{k} entre 2 e 10, usando os
+mesmos componentes que alimentam o K-Means principal. O escore de silhueta mede,
+em uma escala de $-1$ a $1$, o quão bem cada ponto se encaixa no seu próprio
+agrupamento em relação aos agrupamentos vizinhos -- quanto maior, mais coesos e
+mais separados estão os grupos.
+
+Esse escore, no entanto, nunca deve ser o único critério de escolha. Um valor de
+\emph{k} com escore ligeiramente menor, mas que produz agrupamentos
+interpretáveis e alinhados a eventos reais de mercado, é mais útil para uma
+análise de negócio do que o \emph{k} matematicamente ótimo que fragmenta o
+resultado em grupos sem sentido econômico -- tipicamente agrupamentos de uma ou
+duas ações isoladas por um evento pontual.
+
+\subsection{Interpretação econômica por número de agrupamentos}
+
+\begin{table}[htb]
+\caption{Interpretação econômica dos agrupamentos de K-Means por valor de \emph{k}}
+\centering
+\begin{tabular}{p{0.9cm}p{12.3cm}}
+\toprule
+\textbf{\emph{k}} & \textbf{O que emerge} \\
+\midrule
+2 & \emph{Risk-on} vs. \emph{risk-off}: a divisão mais grosseira possível, entre
+ações de alta volatilidade/beta (tecnologia, automotivas de crescimento) e ações
+de baixa volatilidade (consumo básico, saúde, telecom) -- a dicotomia clássica de
+mercado, redescoberta sem qualquer rótulo de setor. \\
+3--4 & Ponto de equilíbrio onde o escore de silhueta costuma ser mais alto e os
+agrupamentos ainda contam uma história simples: tipicamente um grupo
+``IA/crescimento'', um grupo ``energia/commodities'', um grupo
+``defensivas/dividendo'' e um grupo ``financeiro/cíclico''. \\
+5--6 & Subestruturas dentro de setores ``artificiais'' começam a aparecer -- por
+exemplo, separação entre hardware/semicondutores e software/nuvem dentro da
+tecnologia, ou entre bancos de investimento e bancos comerciais tradicionais. \\
+$\geq$ 7 & Superfragmentação: agrupamentos de uma ou duas ações isoladas por
+eventos idiossincráticos. O escore de silhueta tende a cair -- sinal de que o
+algoritmo parou de encontrar fatores de mercado amplos e passou a isolar
+ruído. \\
+\bottomrule
+\end{tabular}
+\vspace{2mm}
+\noindent{\footnotesize Fonte: elaborado pelo autor.}
+\end{table}
+
+\subsection{Projeção bidimensional dos agrupamentos}
+
+Como só é possível desenhar dois eixos por vez, o painel permite escolher quais
+dois componentes visualizar em um gráfico de dispersão -- mas os agrupamentos
+são sempre calculados usando todos os componentes selecionados, de modo que o
+gráfico bidimensional é uma projeção parcial da separação real, que ocorre em
+maior dimensão. Ao plotar, por exemplo, o primeiro componente (fator de
+mercado/beta) contra o segundo (crescimento vs. defensivo), é esperado observar
+os quatro agrupamentos típicos de $k=4$ ocupando regiões relativamente
+compactas e distintas do plano, mesmo sabendo que parte da separação entre eles
+ocorre em componentes não mostrados nesse gráfico específico.
+
+\section{Limites metodológicos e leitura crítica}
+
+\begin{itemize}
+  \item PCA e K-Means não sabem o que é uma empresa: eles só veem números.
+        Quando os agrupamentos batem com a intuição econômica (energia junta, IA
+        junta), isso é evidência de que o mercado precifica essas empresas por
+        fatores de risco comuns, e não um artefato do algoritmo.
+  \item A classificação setorial GICS é uma simplificação: o comportamento real
+        de preço frequentemente obedece a fatores macroeconômicos (juros,
+        geopolítica, ciclo de investimento em IA) que atravessam múltiplos
+        setores oficiais.
+  \item Os resultados são dependentes do regime de mercado: como o painel
+        sempre baixa um ano de dados a partir da data de execução, rodar o
+        mesmo código em datas diferentes pode produzir agrupamentos diferentes
+        -- isso não é uma falha, é evidência de que as correlações de mercado
+        mudam conforme o contexto macroeconômico do momento.
+  \item Correlação não é causalidade: o modelo mostra \emph{que} empresas se
+        movem juntas; a explicação de \emph{por que} vem da leitura do
+        contexto macro feita por quem interpreta os resultados, não do
+        algoritmo em si.
+\end{itemize}
+
+\section{Conclusão}
+
+O pipeline implementado demonstra, de forma reprodutível e interativa, como duas
+técnicas de aprendizado não supervisionado -- PCA e K-Means -- podem extrair
+estrutura econômica de dados de mercado sem qualquer rótulo de setor. O PCA
+comprime cerca de 250 dimensões diárias de retorno em um punhado de fatores de
+risco interpretáveis (mercado/beta, crescimento vs. valor, energia, ruído
+idiossincrático); o K-Means, operando sobre esses fatores, reconstrói
+agrupamentos que ora confirmam a classificação setorial de manual, ora a
+contradizem de maneiras economicamente explicáveis. O resultado central deste
+trabalho não é um número fixo, mas um método: uma forma sistemática de perguntar
+aos próprios dados de preço quem se parece com quem, e de comparar a resposta com
+o que a classificação oficial já pressupõe.
+
+% ---------------------------------------------------------------------------
+% ELEMENTOS POS-TEXTUAIS
+% ---------------------------------------------------------------------------
+\postextual
+
+\phantomsection
+\addcontentsline{toc}{section}{REFERÊNCIAS}
+\section*{REFERÊNCIAS}
+
+\noindent
+JOLLIFFE, I. T. \emph{Principal component analysis}. 2. ed. New York: Springer,
+2002.
+
+\vspace{0.5\baselineskip}
+\noindent
+PEDREGOSA, F. et al. Scikit-learn: machine learning in Python. \emph{Journal of
+Machine Learning Research}, v. 12, p. 2825--2830, 2011.
+
+\vspace{0.5\baselineskip}
+\noindent
+YFINANCE. \emph{Documentação da biblioteca yfinance}. Disponível em:
+\url{https://pypi.org/project/yfinance/}. Acesso em: 19 jul. 2026.
+
+\end{document}
