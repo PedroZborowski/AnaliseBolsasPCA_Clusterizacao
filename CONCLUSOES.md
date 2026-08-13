@@ -226,3 +226,4 @@ evento como explicação causal plausível.
 5. Feche com a limitação: "correlação não é causalidade — o modelo mostra *que*
    empresas se movem juntas, a explicação de *por que* vem da nossa leitura do
    contexto macro, não do algoritmo".
+
